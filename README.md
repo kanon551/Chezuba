@@ -1,4 +1,14 @@
 # UI for Minizuba
+
+# Tech Stack
+1. React
+2. Typescript
+3. Material-ui
+4. Axios
+5. React-error-boundary 
+6. React-query
+7. Context API
+
 # Build UI for order lines API
 # Terminology:
 Orderline - A customer can order multiple products of different quantities. All similar products would be marked as one orderline and the quantity would be mentioned on the orderline entry.
