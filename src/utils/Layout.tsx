@@ -57,7 +57,7 @@ export default function ElevateAppBar(props: Props) {
       </ElevationScroll>
       <Toolbar />
       <Container >
-        <Box sx={{ my: 2, }}>
+        <Box sx={{ my: 2 }}>
           {
             children
           }

@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import { styled } from 'styled-components';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
-import { GroupedOrder, OrderLine } from '../utils/GlobalApi';
+import { GroupedOrder, OrderLine, columns, groupAndSortArray, groupBy } from '../utils/GlobalApi';
 import LinearProgress from '@mui/material/LinearProgress';
 import Skeleton from "@mui/material/Skeleton";
 import Chip from '@mui/material/Chip';
@@ -21,6 +21,7 @@ import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import CircularProgress from '@mui/material/CircularProgress';
 import { usePackageContext } from '../utils/ContextProvider';
+import GroupByQuantityReturn from '../components/GroupByQuantityReturn';
 
 
 const RecordsPerPage = 5; 
@@ -96,17 +97,6 @@ const ErrorMessage = styled.div`
     justify-content: center;
 `
 
-const columns = [
-  { field: 'id', headerName: 'ID', width: 80 },
-  { field: 'OrderLineID', headerName: 'Order Line Id'},
-  { field: 'OrderID', headerName: 'Order ID'},
-  { field: 'Description', headerName: 'Description', width: 380},
-  { field: 'PackageTypeID', headerName: 'Package ID'},
-  { field: 'Quantity', headerName: 'Quantity'},
-  { field: 'StockItemID', headerName: 'StockItem ID'},
-  { field: 'UnitPrice', headerName: 'Unit Price'},
-];
-
 const defaultPackages = [
   { packageType: '1', packageId: 1 },
   { packageType: '2', packageId: 2 },
@@ -132,7 +122,8 @@ const Home = () => {
 
     const [orderLineGroupedData, setOrderLineGroupedData] = useState<GroupedOrder[]>();
     
-    const {packageIDValue, setPackageData} = usePackageContext();
+    const {packageIDValue, setPackageData, groupByKey, setGroupByKeyData} = usePackageContext();
+    const [showGroupByQuantity, setShowGroupByQuantity] = useState<boolean[]>([]); // Array instead of a single boolean
 
     const [currentPage, setCurrentPage] = useState<number>(1);
   
@@ -142,6 +133,12 @@ const Home = () => {
 
     const [packageIdOption, setPackageIdOption] = useState<number>();
     const [options, setOptions] = React.useState<readonly packageProps[]>([]);
+
+    const startIndex = (currentPage - 1) * RecordsPerPage;
+    const totalPages =  orderLineGroupedData !== undefined && orderLineGroupedData.length !== 0 ? Math.ceil( orderLineGroupedData.length / RecordsPerPage) : 0;
+    const endIndex = startIndex + RecordsPerPage;
+    const currentRecords = orderLineGroupedData?.slice(startIndex, endIndex);
+    
     const filterLoad = open && options.length === 0;
   
     React.useEffect(() => {
@@ -175,6 +172,13 @@ const Home = () => {
         setOptions([]);
       }
     }, [open]);
+
+    React.useEffect(() => {
+      if (currentRecords !== undefined && currentRecords.length !== showGroupByQuantity.length) {
+        setShowGroupByQuantity(Array(currentRecords.length).fill(false));
+      }
+    }, [currentRecords, showGroupByQuantity]);
+    
     
     const onSuccess = ()=> {
       console.warn("Successfully fetched the data")
@@ -183,13 +187,15 @@ const Home = () => {
       console.warn(error)
     }
 
-    useEffect(()=> {
-      if(data !== undefined && groupByInitiated === true){
-        const resultArray = groupAndSortArray(data);
-        const result = groupByOrderId(resultArray);
+
+    const groupByBasedOnSelection = (groupByKey: keyof OrderLine) => {
+      if(data !== undefined){
+        setGroupByInitiated(true);
+        const resultArray = groupAndSortArray(data, groupByKey);
+        const result = groupBy(resultArray, groupByKey);
         setOrderLineGroupedData(result);
       }
-    },[groupByInitiated])
+    }
 
     
     const extractUniquePackageTypes = (dataArray: OrderLine[]) => {
@@ -224,18 +230,9 @@ const Home = () => {
       setExpanded(isExpanded ? panel : false);
     };
 
-    
-
-      const startIndex = (currentPage - 1) * RecordsPerPage;
-      const totalPages =  orderLineGroupedData !== undefined && orderLineGroupedData.length !== 0 ? Math.ceil( orderLineGroupedData.length / RecordsPerPage) : 0;
-      const endIndex = startIndex + RecordsPerPage;
-      const currentRecords = orderLineGroupedData?.slice(startIndex, endIndex);
-      
       const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
         setCurrentPage(page);
       };
-  
-
 
       const LoadingSkeleton = () => (
         <Box
@@ -248,49 +245,7 @@ const Home = () => {
           ))}
         </Box>
       );
-    
-    function groupAndSortArray(array: OrderLine[]) {
-        
-        const groupedByOrderID: Record<number, OrderLine[]> = {};
-      
-        
-        array.forEach((item) => {
-          const orderID = item.OrderID;
-          if (!groupedByOrderID[orderID]) {
-            groupedByOrderID[orderID] = [];
-          }
-          groupedByOrderID[orderID].push(item);
-        });
-      
-        const sortedArray = Object.values(groupedByOrderID).flatMap((group) =>
-          group.sort((a, b) => a.OrderID - b.OrderID)
-        );
-      
-        return sortedArray;
-      }
 
-    function groupByOrderId(array: OrderLine[]): GroupedOrder[] {
-      const groupedOrdersMap = new Map<number, GroupedOrder>();
-  
-      array.forEach(item => {
-          const orderId = item.OrderID;
-  
-          if (groupedOrdersMap.has(orderId)) {
-              groupedOrdersMap.get(orderId)?.OrdersUnderOrderId.push(item);
-          } else {
-              const newGroup: GroupedOrder = {
-                  OrderId: orderId,
-                  OrdersUnderOrderId: [item]
-              };
-              groupedOrdersMap.set(orderId, newGroup);
-          }
-      });
-  
-      const groupedOrders = Array.from(groupedOrdersMap.values());
-      return groupedOrders;
-  }
-  
-  
   return (
     <Box sx={{ flexGrow: 1 }}>
         <Grid container spacing={3} sx={{ padding: '2vh', marginTop:'2vh' }}>
@@ -298,7 +253,7 @@ const Home = () => {
           <Grid item xs={12} sm={4} md={2} lg={2} xl={2}>
               <div style={{ position: "sticky", top: "10%" }}>
                   <HeaderStyle>
-                    Filter
+                    Console
                   </HeaderStyle>
                      {
                         groupByInitiated === false && !isLoading && packageIDValue !== 0 &&
@@ -322,6 +277,7 @@ const Home = () => {
                             onClose={() => {
                               setOpen(false);
                             }}
+                            size="small"
                             isOptionEqualToValue={(option, value) => option.packageType === value.packageType}
                             getOptionLabel={(option) => option.packageType}
                             options={options}
@@ -333,7 +289,7 @@ const Home = () => {
                             renderInput={(params) => (
                               <TextField
                                 {...params}
-                                label="Package ID"
+                                label="Filter Package ID"
                                 InputProps={{
                                   ...params.InputProps,
                                   endAdornment: (
@@ -351,7 +307,10 @@ const Home = () => {
                         packageIDValue === 0 && groupByInitiated === false && !isLoading &&
                         <Chip
                           label="Group By Order ID"
-                          onClick={()=>setGroupByInitiated(true)}
+                          onClick={()=> {
+                            setGroupByKeyData('OrderID');
+                            groupByBasedOnSelection('OrderID')
+                          }}
                           sx={{marginBottom:'2vh', marginTop:"2vh"}}
                         />
                     } 
@@ -359,6 +318,10 @@ const Home = () => {
                         packageIDValue !== 0 && groupByInitiated === false && !isLoading &&
                         <Chip
                           label="Group By Stock Item ID"
+                          onClick={()=> {
+                            setGroupByKeyData('StockItemID');
+                            groupByBasedOnSelection('StockItemID')
+                          }}
                           sx={{marginBottom:'2vh', marginTop:"2vh"}}
                         />
                     } 
@@ -371,9 +334,18 @@ const Home = () => {
                           sx={{marginBottom:'2vh', marginTop:"2vh"}}
                         />
                     }
+                     {
+                        packageIDValue !== 0  && groupByInitiated &&
+                        <Chip
+                            label="Group By Stock Item ID"
+                            color="primary"
+                            onDelete={()=>setGroupByInitiated(false)}
+                            sx={{marginBottom:'2vh', marginTop:"2vh"}}
+                        />
+                    } 
               </div>
           </Grid>
-          <Grid item  xs={12} sm={8} md={10} lg={10} xl={10} sx={{height:'100vh'}}>
+          <Grid item  xs={12} sm={8} md={10} lg={10} xl={10}>
           <div style={{ height: 400, width: '100%' }}>
           
           {
@@ -401,40 +373,71 @@ const Home = () => {
                     <>
                         <div>
                             {
-                                currentRecords?.map((record, index) => 
-                              
-                                {
-                                
+                                currentRecords?.map((record, index) =>  {
 
                                   return   (
-                                    <Accordion key={index} expanded={expanded === `order-${index}`} onChange={handleChange(`order-${index}`)}>
+                                    <Accordion 
+                                    key={`${groupByKey}-${index}-${currentPage}`}
+                                    expanded={expanded === `${groupByKey}-${index}`} 
+                                    onChange={handleChange(`${groupByKey}-${index}`)}>
                                         <AccordionSummary aria-controls="panel1d-content" id="panel1d-header">
-                                            <Typography>{`Order ID: ${record.OrderId} - (${record.OrdersUnderOrderId.length})`}</Typography>
+                                        <Typography sx={{ flex: '1 1 100%', marginBottom: '8px' }}>{`${groupByKey}: ${record.groupByKeyValue} - (${record.OrdersUnderGroupByKeyValue.length})`}</Typography>
+                                            {
+                                              packageIDValue !== 0 &&
+                                              <Typography sx={{ flex: '1 1 100%', color: 'text.secondary', marginBottom: '8px' }}>{`Package Id: ${packageIDValue}`}</Typography>
+                                            }
+                                              <Chip
+                                                 color={showGroupByQuantity[index] === false ? 'secondary' : 'error'}
+                                                  sx={{
+                                                    flex: '1 1 100%', marginBottom: '8px',
+                                                    height: 'auto',
+                                                    '& .MuiChip-label': {
+                                                      display: 'block',
+                                                      whiteSpace: 'normal',
+                                                    },
+                                                  }}
+                                                  label={showGroupByQuantity[index] === false ? 'Group By Quantity' : 'Un-Group'}
+                                                  onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    const updatedShowGroupByQuantity = [...showGroupByQuantity];
+                                                    updatedShowGroupByQuantity[index] = !updatedShowGroupByQuantity[index];
+                                                    setShowGroupByQuantity(updatedShowGroupByQuantity);
+                                                  }}
+                                                />
+                                          
                                         </AccordionSummary>
                                         <AccordionDetails>
-                                              <DataGrid
-                                                style={{ color: 'black' }}
-                                                rows={record.OrdersUnderOrderId}
-                                                columns={columns}
-                                                initialState={{
-                                                  columns: {
-                                                    columnVisibilityModel: {
-                                                      id: false,
-                                                    },
-                                                  },
-                                                }}
-                                              />
+
+                                                {
+                                                    showGroupByQuantity[index] && 
+                                                    <GroupByQuantityReturn 
+                                                    array={record.OrdersUnderGroupByKeyValue}
+                                                    index={index}/>
+                                                }
+                                                {
+                                                    !showGroupByQuantity[index] &&
+                                                      <DataGrid
+                                                      style={{ color: 'black' }}
+                                                      rows={record.OrdersUnderGroupByKeyValue}
+                                                      columns={columns}
+                                                      initialState={{
+                                                        columns: {
+                                                          columnVisibilityModel: {
+                                                            id: false,
+                                                          },
+                                                        },
+                                                        pagination: { paginationModel: { pageSize: 10 } },
+                                                      }}
+                                                    />
+                                                }
                                         </AccordionDetails>
 
                                     </Accordion>
                                 )
                                 }
-                              
-                                
-                                )
+                              )
                             }
                         </div>
-
                         <Pagination count={totalPages} page={currentPage} onChange={handlePageChange} color="secondary" variant="outlined"
                         sx={{marginTop:'2vh', marginBottom:'5vh'}}
                         />
@@ -448,7 +451,6 @@ const Home = () => {
                     initialState={{
                         columns: {
                           columnVisibilityModel: {
-                            // Hide columns id, the other columns will remain visible
                             id: false,
                           },
                         }
@@ -458,11 +460,9 @@ const Home = () => {
                   }
                 
               </>
-             
            }
               
           </div>
-
           </Grid>
          
         </Grid>

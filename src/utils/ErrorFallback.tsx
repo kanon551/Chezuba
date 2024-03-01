@@ -109,9 +109,6 @@ export const ErrorFallback = ({ error }: { error: Error }) => {
         <ErrorDesc>
           Something went wrong , Please try again after some time
         </ErrorDesc>
-        <StyledButton color="success" href="/collegePartners">
-          Go to College List
-        </StyledButton>
       </ErrorCard>
 
     </ErrorBlock>
