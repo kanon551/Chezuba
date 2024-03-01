@@ -1,5 +1,9 @@
 # UI for Minizuba
 
+
+https://github.com/kanon551/Chezuba/assets/88090133/c6e88269-8df0-4192-af84-57f87cceb496
+
+
 # Tech Stack
 1. React
 2. Typescript
